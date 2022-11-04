@@ -459,6 +459,8 @@ public class GSVAP {
         
         // some changes
         String tmp = "";
+        String tmp1 = "";
+        
         /*
         BufferedWriter w = new BufferedWriter(new FileWriter(stats_file));
         
