@@ -456,6 +456,9 @@ public class GSVAP {
     }
 
     private void mergeSVsStatsFiles(String sum_file, String count_file, String stats_file) throws Exception {
+        
+        // some changes
+        String tmp = "";
         /*
         BufferedWriter w = new BufferedWriter(new FileWriter(stats_file));
         
