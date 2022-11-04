@@ -461,6 +461,8 @@ public class GSVAP {
         String tmp = "";
         String tmp1 = "";
         
+        String tmp2 = "";
+        
         /*
         BufferedWriter w = new BufferedWriter(new FileWriter(stats_file));
         
