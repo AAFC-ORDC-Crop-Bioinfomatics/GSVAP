@@ -33,6 +33,7 @@ public class GSVAP {
             System.out.println("Usage:");
             System.out.println("java -jar GSVAP.jar input_data_folder output_folder");
             System.exit(1);
+            System.out.println("atestpull_cz");
         }
         
         String input_data_folder = args[0];
