@@ -20,6 +20,7 @@ public class GSVAP {
      * @param args the command line arguments
      */
     public static String RScriptPath = "/usr/bin/Rscript";
+    private static final DecimalFormat df6 = new DecimalFormat("0.000000");
     private static final DecimalFormat df3 = new DecimalFormat("0.000");
     private static final DecimalFormat df2 = new DecimalFormat("0.00");
     private static Hashtable<String, Float> ref_ids_len_hash = new Hashtable();
@@ -63,7 +64,6 @@ public class GSVAP {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        
         
         
     }
@@ -205,6 +205,7 @@ public class GSVAP {
         // summary the results from show-coords command
         coordStatiscs(summary_file);
         
+       
     }
     
     private void coordStatiscs(String summary_file) throws Exception {
@@ -277,15 +278,20 @@ public class GSVAP {
         String query_stats_file = summary_file + ".query.stats.txt";
         
         boolean is_ref = true;
-        mergeCoordsStatsFiles(ref_sum_file, ref_count_file, ref_ids_len_hash, ref_stats_file, is_ref);
+        mergeCoordsStatsFiles(ref_sum_file, ref_count_file, ref_stats_file, is_ref);
         is_ref = false;
-        mergeCoordsStatsFiles(query_sum_file, query_count_file, query_ids_len_hash, query_stats_file, is_ref);
+        mergeCoordsStatsFiles(query_sum_file, query_count_file, query_stats_file, is_ref);
         
+        // delete two intermediate files
+        new File(query_sum_file).delete();
+        new File(query_count_file).delete();
+        new File(ref_sum_file).delete();
+        new File(ref_count_file).delete();
         
     }
 
     private void mergeCoordsStatsFiles(String sum_file, String count_file,
-            Hashtable<String, Float> query_ids_len_hash,  String stats_file, boolean is_ref) throws Exception {
+            String stats_file, boolean is_ref) throws Exception {
         
         BufferedWriter w = new BufferedWriter(new FileWriter(stats_file));
         
@@ -320,6 +326,8 @@ public class GSVAP {
         line = null;
         buf = new StringBuffer();
         line_count = 0;
+        float match_total = 0.0f;
+                
         while ((line=r.readLine()) != null) {
             line_count++;
             
@@ -356,13 +364,48 @@ public class GSVAP {
                 float ref_match_len_kb_sum = new Float(cols[2]).floatValue();
                 float ref_len_kb = new Float(cols[9]).floatValue();
                 pct = ref_match_len_kb_sum/ref_len_kb * 100.0f;
+                
+                match_total += new Float(cols[2]).floatValue(); 
             } else {
                 float query_match_len_kb_sum = new Float(cols[6]).floatValue();
                 float query_len_kb = new Float(cols[13]).floatValue();
                 pct = query_match_len_kb_sum/query_len_kb * 100.0f;
+                
+                match_total += new Float(cols[6]).floatValue(); 
             }
             w.write(df2.format(pct) + "\n");
         }
+        
+        // calculate the total length of reference sequence
+        float total = 0;
+        if (is_ref) {
+            Enumeration<String> keys = ref_ids_len_hash.keys();
+            while (keys.hasMoreElements()) {
+                String key = keys.nextElement();
+                total += ref_ids_len_hash.get(key);
+            }
+        } else {
+            Enumeration<String> keys = query_ids_len_hash.keys();
+            while (keys.hasMoreElements()) {
+                String key = keys.nextElement();
+                total += query_ids_len_hash.get(key);
+            }
+            
+        }
+        
+        float total_match_pct = match_total/total*100;
+        //System.out.println(match_total + "\t" +  total + "\t" + total_match_pct);
+        
+        if (is_ref) {
+            w.write("Total" + "\t \t");
+            w.write(df3.format(match_total) + "\t \t \t \t \t \t \t \t \t \t \t \t \t \t \t \t");
+            w.write(df6.format(total_match_pct) + "\n");
+        } else {
+            w.write("Total\t \t \t \t \t \t");
+            w.write(df3.format(match_total) + "\t \t \t \t \t \t \t \t \t \t \t \t");
+            w.write(df6.format(total_match_pct) + "\n");
+        }
+        
         r.close();
         w.close();        
                 
@@ -449,23 +492,45 @@ public class GSVAP {
         caller.runOnly();
 
         // reorganize the results files into one:(1) put sum and counts from two different output files together (2) calculate overall total
-        String query_stats_file = summary_file + ".SVs.query.stats.txt";
+        // save into this file
+        String query_stats_file = summary_file + ".query.stats.txt";
         
         boolean is_ref = false;
-        mergeSVsStatsFiles(query_sum_file, query_count_file, query_stats_file);
+        mergeSVsStatsFiles(is_ref, query_sum_file, query_count_file, query_stats_file);
         
+        // delete two intermediate files
+        new File(query_sum_file).delete();
+        new File(query_count_file).delete();
+        
+        //draw SV count bar chart
+        drawSVBarChart(query_stats_file);
     }
 
-    private void mergeSVsStatsFiles(String sum_file, String count_file, String stats_file) throws Exception {
+    private void drawSVBarChart(String query_stats_file) throws Exception {
+        System.out.println("Draw barchart...");
         
-        // some changes
-        String tmp = "";
-        String tmp1 = "";
+        RCaller caller = new RCaller();
+        RCode  code = new RCode();
+        caller.setRscriptExecutable(RScriptPath);
+        caller.cleanRCode();
         
-        String tmp2 = "just test";
-        String tmp3 = "test gain";
+        // draw histograms of match lengths (ref and query) and match identity
+        code.R_require("ggplot2");
+        code.addRCode("data<-read.table(\"" + query_stats_file + "\", sep=\"\\t\", header=T)");
+
+        String barchart_file = query_stats_file +  ".barchart.tiff";
+        code.addRCode("tiff(\"" + barchart_file + "\", units=\"in\", width=5, height=5, res=300)");
+        code.addRCode("ggplot(data, aes(x=type, y=query_match_count)) +  geom_bar(stat=\"identity\")");
+        code.addRCode("dev.off()");
+        //System.out.println(code.getCode());
+        caller.setRCode(code);
+        caller.runOnly();
+
+    }
+    
+    private void mergeSVsStatsFiles(boolean is_ref, String sum_file, String count_file, String stats_file) throws Exception {
+                
         
-        /*
         BufferedWriter w = new BufferedWriter(new FileWriter(stats_file));
         
         // read count file
@@ -478,7 +543,7 @@ public class GSVAP {
         while ((line=r.readLine()) != null) {
             line_count++;
             
-            if (line_count <= 2) {       // print header
+            if (line_count == 1) {       // skip header
                 continue;
             }
             
@@ -506,13 +571,11 @@ public class GSVAP {
                 w.write(line + "\t");
                 
                 if (is_ref) {
-                    w.write("ref_match_count\tref_match_pct (%)\n");
+                    w.write("ref_match_count\n");
                 } else {
-                    w.write("query_match_count\tquery_match_pct (%)\n");
+                    w.write("query_match_count\n");
                 }
                 
-                continue;
-            } else if (line_count == 2) { // skip this line
                 continue;
             }
             
@@ -528,23 +591,14 @@ public class GSVAP {
             for (int i = 1; i < cols.length; i++) {
                 w.write(df3.format(new Float(cols[i])) + "\t");
             }
-            w.write(counts_hash.get(id) + "\t");
+            w.write(counts_hash.get(id) + "\n");
             
-            float pct = 0;
-            if (is_ref) {
-                float ref_match_len_kb_sum = new Float(cols[2]).floatValue();
-                float ref_len_kb = new Float(cols[9]).floatValue();
-                pct = ref_match_len_kb_sum/ref_len_kb * 100.0f;
-            } else {
-                float query_match_len_kb_sum = new Float(cols[6]).floatValue();
-                float query_len_kb = new Float(cols[13]).floatValue();
-                pct = query_match_len_kb_sum/query_len_kb * 100.0f;
-            }
-            w.write(df2.format(pct) + "\n");
         }
         r.close();
         w.close();        
-*/
+
+        
+       String test = "";
     }
 
     
