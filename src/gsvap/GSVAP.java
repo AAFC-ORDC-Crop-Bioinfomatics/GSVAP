@@ -596,6 +596,8 @@ public class GSVAP {
         r.close();
         w.close();        
 
+        
+       String test = "";
     }
 
     
