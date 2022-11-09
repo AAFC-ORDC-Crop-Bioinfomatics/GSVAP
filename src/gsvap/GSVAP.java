@@ -41,6 +41,7 @@ public class GSVAP {
 
         
         // error check
+        //test
         
 
         if (!new File(input_data_folder).exists()) {
