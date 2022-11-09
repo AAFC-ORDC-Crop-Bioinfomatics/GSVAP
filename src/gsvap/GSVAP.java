@@ -283,10 +283,10 @@ public class GSVAP {
         mergeCoordsStatsFiles(query_sum_file, query_count_file, query_stats_file, is_ref);
         
         // delete two intermediate files
-        new File(query_sum_file).delete();
-        new File(query_count_file).delete();
-        new File(ref_sum_file).delete();
-        new File(ref_count_file).delete();
+//        new File(query_sum_file).delete();
+//        new File(query_count_file).delete();
+//        new File(ref_sum_file).delete();
+//        new File(ref_count_file).delete();
         
     }
 
