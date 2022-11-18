@@ -75,7 +75,42 @@ public class GSVAP {
             
             // Objective 2: generate parse showdiff result file to generate summary file 
             parseShowDiffFiles(input_data_folder, output_data_folder);
+            
+            // Objective 3: generate showsnps result file to view summary of all SNPs and indels between the two sequence sets
+            parseShowSnpsFiles(input_data_folder, output_data_folder);
         
+    }
+    private void parseShowSnpsFiles(String input_data_folder, String output_data_folder)throws Exception {
+        System.out.println("Generate SVs file from the file *.delta");
+        
+        File in_files = new File(input_data_folder);
+        String[] files = in_files.list();
+        for (int i = 0; i < files.length; i++) {
+            if (!files[i].endsWith("delta")) {
+                continue;
+            }
+            
+            String in_file = input_data_folder + File.separator + files[i];
+        
+            // generate showsnps result file to view summary of all SNPs and indels between the two sequence sets
+            String out_file = output_data_folder + File.separator + files[i] + ".showsnps.SVs.txt";
+            String [] cmd_arr = {"/bin/sh" , "-c",  "show-snps -C " + in_file + ">" + out_file};
+            System.out.print("command: ");
+            System.out.println(Arrays.toString(cmd_arr));
+            
+            Process p = Runtime.getRuntime().exec(cmd_arr);
+            p.waitFor();
+            
+            if (p.exitValue() != 0) {
+                InputStream errorStream = p.getErrorStream();
+                int c = 0;
+                while ((c = errorStream.read()) != -1) {
+                    System.out.print((char)c);
+                }
+            }
+            // Parse coords file
+            parseDiffsFile(out_file, output_data_folder);
+        }
     }
     
     private void parseShowDiffFiles(String input_data_folder, String output_data_folder)throws Exception {
@@ -229,7 +264,7 @@ public class GSVAP {
         
         // draw histograms of match lengths (ref and query) and match identity
         code.R_require("ggplot2");
-        code.R_require("dplyr");
+        code.R_require(" ");
         code.addRCode("data<-read.table(\"" + summary_file + "\", sep=\"\\t\", header=T)");
         code.addRCode("tiff(\"" + ref_histogram_file + "\", units=\"in\", width=5, height=5, res=300)");
         code.addRCode("ggplot(data, aes(x=ref_match_len_kb)) +  geom_histogram(color=\"black\", fill=\"white\")");
